@@ -58,7 +58,7 @@ Steps:
 4. Use the `google_calendar_tool` to ADD EACH study session to Google Calendar. Ensure dates use YYYY-MM-DD format, pick logical start_hours (e.g., 9 for 9AM), and make sure sessions do NOT overlap.
 """
         ),
-        expected_output="A full valid HTML table outlining the study schedule day by day, and confirmations that the calendar events were successfully created.",
+        expected_output="The final output MUST be entirely valid HTML. Include an HTML table for the schedule, and use <h3>, <ul>, <li>, and <a href='...'> tags for the calendar confirmations. NEVER use markdown symbols like ### or ** or [Link](URL).",
         agent=planner_agent
     )
 
