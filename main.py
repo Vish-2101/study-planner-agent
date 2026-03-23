@@ -23,51 +23,54 @@ else:
 calculator_tool = study_time_calculator
 calendar_tool = google_calendar_tool
 
-# Calculate the actual dates to help the agent pass dynamic dates to the calendar
-today_date = datetime.now()
-exam_date = today_date + timedelta(days=5)
+def run_study_planner(subjects: str, days: int, daily_hours: int) -> str:
+    # Calculate the actual dates to help the agent pass dynamic dates to the calendar
+    today_date = datetime.now()
+    exam_date = today_date + timedelta(days=days)
 
-planner_agent = Agent(
-    role="AI Study Planner",
-    goal="Create efficient study schedules and add them to Google Calendar",
-    backstory=(
-        "You are an expert academic planner that helps students prepare for exams "
-        "by creating balanced study schedules. You take the availability of the student "
-        "and their subjects into account, structuring the sessions day by day."
-    ),
-    tools=[calculator_tool, calendar_tool],
-    llm=llm,
-    verbose=True
-)
+    planner_agent = Agent(
+        role="AI Study Planner",
+        goal="Create efficient study schedules and add them to Google Calendar",
+        backstory=(
+            "You are an expert academic planner that helps students prepare for exams "
+            "by creating balanced study schedules. You take the availability of the student "
+            "and their subjects into account, structuring the sessions day by day."
+        ),
+        tools=[calculator_tool, calendar_tool],
+        llm=llm,
+        verbose=True
+    )
 
-task = Task(
-    description=(
-        f"""
+    task = Task(
+        description=(
+            f"""
 Create a study schedule starting from today ({today_date.strftime("%Y-%m-%d")}) until the exam ({exam_date.strftime("%Y-%m-%d")}).
 
-Subjects: AI, ML, Cloud Computing
-Days until exam: 5
-Daily study hours: 4
+Subjects: {subjects}
+Days until exam: {days}
+Daily study hours: {daily_hours}
 
 Steps:
 1. Use the `study_time_calculator` tool to figure out total study hours and allocate hours per subject.
-2. Based on step 1, create a daily study plan for each of the 5 days. For each day, schedule specific blocks for subjects.
+2. Based on step 1, create a daily study plan for each of the {days} days. For each day, schedule specific blocks for subjects.
 3. Use the `google_calendar_tool` to ADD EACH study session to Google Calendar. Make sure to use the correct date (YYYY-MM-DD form) 
-   and a logical start_hour (e.g., 10 for 10 AM, 14 for 2PM) and duration. Do NOT overlap sessions.
+   and a logical start_hour (e.g., 10 for 10 AM, 14 for 14:00) and duration. Do NOT overlap sessions.
 """
-    ),
-    expected_output="A full valid study schedule outlining subjects day by day, and confirmations that the calendar events were successfully created.",
-    agent=planner_agent
-)
+        ),
+        expected_output="A full valid HTML table outlining the study schedule day by day, and confirmations that the calendar events were successfully created.",
+        agent=planner_agent
+    )
 
-crew = Crew(
-    agents=[planner_agent],
-    tasks=[task],
-    verbose=True
-)
+    crew = Crew(
+        agents=[planner_agent],
+        tasks=[task],
+        verbose=True
+    )
 
-if __name__ == "__main__":
     print(f"Starting the AI Study Planner Crew using LLM: {llm.model if llm else 'Default OpenAI'}")
     result = crew.kickoff()
-    print("\nFinal Result\n")
-    print(result)
+    return str(result)
+
+if __name__ == "__main__":
+    # Test block for local script execution
+    print(run_study_planner("AI, ML, Cloud Computing", 5, 4))
