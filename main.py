@@ -1,4 +1,5 @@
 import os
+import json
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, LLM
 from planner_tools import study_time_calculator
@@ -8,8 +9,6 @@ from datetime import datetime, timedelta
 # Load environment variables
 load_dotenv()
 
-# Determine which LLM to use based on available API keys
-# Prefer Gemini since we are in a Gemini ecosystem, but fall back to OpenAI if it's there
 llm = None
 if os.getenv("GEMINI_API_KEY"):
     llm = LLM(model="gemini/gemini-3-flash-preview", api_key=os.getenv("GEMINI_API_KEY"))
@@ -19,22 +18,24 @@ else:
     print("WARNING: Neither GEMINI_API_KEY nor OPENAI_API_KEY was found in the environment variables.")
     print("Please create a .env file and add one of these keys. CrewAI will default to OpenAI and might fail.")
 
-# Note: The tools are now decorated functions, not instantiated classes
 calculator_tool = study_time_calculator
 calendar_tool = google_calendar_tool
 
-def run_study_planner(subjects: str, days: int, daily_hours: int) -> str:
-    # Calculate the actual dates to help the agent pass dynamic dates to the calendar
+def run_study_planner(subjects_data: list, days: int, daily_hours: int) -> str:
     today_date = datetime.now()
     exam_date = today_date + timedelta(days=days)
 
+    # Convert complex list to a json string to pass to the tool safely
+    subjects_json_str = json.dumps(subjects_data)
+
     planner_agent = Agent(
         role="AI Study Planner",
-        goal="Create efficient study schedules and add them to Google Calendar",
+        goal="Create highly optimized, priority-weighted study schedules and add them to Google Calendar.",
         backstory=(
-            "You are an expert academic planner that helps students prepare for exams "
-            "by creating balanced study schedules. You take the availability of the student "
-            "and their subjects into account, structuring the sessions day by day."
+            "You are an expert academic planner that specializes in triage and weighted scheduling. "
+            "You understand that subjects with more 'chapters left' demand more time urgently. "
+            "You strictly follow the mathematical distributions given to you by your calculator tool, "
+            "organizing the heaviest workloads earliest in the week so the student isn't overwhelmed right before the exam."
         ),
         tools=[calculator_tool, calendar_tool],
         llm=llm,
@@ -44,17 +45,17 @@ def run_study_planner(subjects: str, days: int, daily_hours: int) -> str:
     task = Task(
         description=(
             f"""
-Create a study schedule starting from today ({today_date.strftime("%Y-%m-%d")}) until the exam ({exam_date.strftime("%Y-%m-%d")}).
+Create a priority-weighted study schedule starting from today ({today_date.strftime("%Y-%m-%d")}) until the exam ({exam_date.strftime("%Y-%m-%d")}).
 
-Subjects: {subjects}
+Subject Data (JSON): {subjects_json_str}
 Days until exam: {days}
 Daily study hours: {daily_hours}
 
 Steps:
-1. Use the `study_time_calculator` tool to figure out total study hours and allocate hours per subject.
-2. Based on step 1, create a daily study plan for each of the {days} days. For each day, schedule specific blocks for subjects.
-3. Use the `google_calendar_tool` to ADD EACH study session to Google Calendar. Make sure to use the correct date (YYYY-MM-DD form) 
-   and a logical start_hour (e.g., 10 for 10 AM, 14 for 14:00) and duration. Do NOT overlap sessions.
+1. Use the `study_time_calculator` tool and pass exactly the Subject Data JSON string ({subjects_json_str}), days, and daily_hours to get the recommended hour distribution.
+2. Based ONLY on the mathematical distribution returned by the calculator, build a daily study plan spreading the required hours across the {days} days. Do NOT give equal time to subjects; respect the weighted distribution!
+3. Schedule subjects with the most 'chapters left' (highest hours) earlier in the week.
+4. Use the `google_calendar_tool` to ADD EACH study session to Google Calendar. Ensure dates use YYYY-MM-DD format, pick logical start_hours (e.g., 9 for 9AM), and make sure sessions do NOT overlap.
 """
         ),
         expected_output="A full valid HTML table outlining the study schedule day by day, and confirmations that the calendar events were successfully created.",
@@ -72,5 +73,9 @@ Steps:
     return str(result)
 
 if __name__ == "__main__":
-    # Test block for local script execution
-    print(run_study_planner("AI, ML, Cloud Computing", 5, 4))
+    test_data = [
+        {"name": "AI", "total": 10, "left": 8},
+        {"name": "ML", "total": 5, "left": 1},
+        {"name": "Cloud", "total": 8, "left": 4}
+    ]
+    print(run_study_planner(test_data, 5, 4))

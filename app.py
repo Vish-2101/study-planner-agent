@@ -12,15 +12,17 @@ def home():
 def plan():
     """API endpoint to trigger the AI agent."""
     data = request.json
-    subjects = data.get('subjects')
+    subjects = data.get('subjects') # Expected to be a list of objects now
     days = data.get('days')
     hours = data.get('hours')
 
-    if not all([subjects, days, hours]):
-        return jsonify({'error': 'Missing required fields: subjects, days, hours'}), 400
+    if not subjects or not isinstance(subjects, list) or len(subjects) == 0:
+        return jsonify({'error': 'Please provide at least one valid subject.'}), 400
+        
+    if not days or not hours:
+        return jsonify({'error': 'Missing days or hours fields.'}), 400
 
     try:
-        # Convert to appropriate types
         days = int(days)
         hours = int(hours)
         
@@ -32,7 +34,7 @@ def plan():
             'result': result
         })
     except ValueError:
-        return jsonify({'error': 'Days and and Study Hours must be numbers.'}), 400
+        return jsonify({'error': 'Days and Study Hours must be valid numbers.'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
